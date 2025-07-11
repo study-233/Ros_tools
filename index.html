@@ -16,7 +16,6 @@
 
     body {
       background-color: #f2f2f2;
-      font-family: Arial, sans-serif;
     }
 
     .wrapper {
@@ -24,12 +23,11 @@
       justify-content: center;
       align-items: center;
       height: 100vh;
-      flex-direction: column;
     }
 
     .container {
-      max-width: 33vw; /* 最大宽度为视口宽度的90% */
-      width: 100%;
+      max-width: 300px; /* 限制最大宽度，防止过大 */
+      width: 90vw; /* 宽度占屏幕90% */
       margin: 0 auto;
       display: flex;
       flex-direction: column;
@@ -44,7 +42,6 @@
       gap: 4px;
       width: 100%; /* 填满容器宽度 */
       aspect-ratio: 5 / 6; /* 宽高比保持5:6 */
-      margin-bottom: 20px; /* 网格与按钮之间的间距 */
     }
 
     .cell {
@@ -53,7 +50,7 @@
       align-items: center;
       border: 1px solid #999;
       background-color: #f0f0f0;
-      font-size: calc(1.5vw + 1.5vh); /* 动态调整字体大小 */
+      font-size: 1.2vw; /* 字体随屏幕宽度缩放 */
       min-height: 40px; /* 给个最小高度 */
     }
 
@@ -82,33 +79,9 @@
 
     button {
       margin: 8px;
-      padding: 12px 20px; /* 增大按钮面积 */
+      padding: 10px 16px;
       font-size: 16px;
       cursor: pointer;
-      border: none;
-      border-radius: 5px;
-      background-color: #4caf50;
-      color: white;
-      transition: background-color 0.3s ease;
-    }
-
-    button:hover {
-      background-color: #45a049;
-    }
-
-    button:active {
-      background-color: #3e8e41;
-    }
-
-    /* 响应式设计 */
-    @media (max-width: 600px) {
-      .cell {
-        font-size: calc(2vw + 2vh); /* 更大的字体 */
-      }
-      button {
-        font-size: 14px; /* 减小按钮字体 */
-        padding: 10px 16px; /* 减小按钮面积 */
-      }
     }
   </style>
 </head>
@@ -116,9 +89,9 @@
 
   <div class="wrapper">
     <div class="container">
-      <h2 style="font-size: calc(2vw + 2vh); margin-bottom: 10px;">5×6 网格抽取工具</h2>
+      <h2>5×6 网格抽取工具</h2>
       <div class="grid" id="grid"></div>
-      <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+      <div>
         <button onclick="placeRecognition()">放置三个识别板</button>
         <button onclick="placeBoth()">放置识别板和障碍板</button>
         <button onclick="resetGrid()">重置</button>
