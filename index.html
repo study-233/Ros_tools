@@ -26,6 +26,9 @@
     }
 
     .container {
+      max-width: 300px; /* 限制最大宽度，防止过大 */
+      width: 90vw; /* 宽度占屏幕90% */
+      margin: 0 auto;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -34,10 +37,11 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(5, 50px);
-      grid-template-rows: repeat(6, 50px);
+      grid-template-columns: repeat(5, 1fr); /* 5列平分宽度 */
+      grid-template-rows: repeat(6, 1fr);   /* 6行等分高度 */
       gap: 4px;
-      justify-content: center;
+      width: 100%; /* 填满容器宽度 */
+      aspect-ratio: 5 / 6; /* 宽高比保持5:6 */
     }
 
     .cell {
@@ -46,6 +50,8 @@
       align-items: center;
       border: 1px solid #999;
       background-color: #f0f0f0;
+      font-size: 1.2vw; /* 字体随屏幕宽度缩放 */
+      min-height: 40px; /* 给个最小高度 */
     }
 
     .excluded {
