@@ -2,9 +2,8 @@
 <html lang="zh-CN">
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-
   <meta charset="UTF-8">
-  <title>房间板子放置工具</title>
+  <title>房间板子放置工具 (10x4)</title>
   <style>
     * { box-sizing: border-box; }
 
@@ -16,6 +15,7 @@
 
     body {
       background-color: #f2f2f2;
+      font-family: sans-serif;
     }
 
     .wrapper {
@@ -26,8 +26,8 @@
     }
 
     .container {
-      max-width: 500px; /* 限制最大宽度，防止过大 */
-      width: 80vw; /* 宽度占屏幕90% */
+      width: 95vw; /* 10列较宽，增加显示宽度 */
+      max-width: 800px; 
       margin: 0 auto;
       display: flex;
       flex-direction: column;
@@ -37,11 +37,12 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr); /* 5列平分宽度 */
-      grid-template-rows: repeat(6, 1fr);   /* 6行等分高度 */
+      grid-template-columns: repeat(10, 1fr); /* 修改为10列 */
+      grid-template-rows: repeat(4, 1fr);    /* 修改为4行 */
       gap: 4px;
-      width: 100%; /* 填满容器宽度 */
-      aspect-ratio: 5 / 6; /* 宽高比保持5:6 */
+      width: 100%;
+      aspect-ratio: 10 / 4; /* 宽高比改为10:4 */
+      margin-bottom: 20px;
     }
 
     .cell {
@@ -50,70 +51,66 @@
       align-items: center;
       border: 1px solid #999;
       background-color: #f0f0f0;
-      font-size: 2vw; /* 字体随屏幕宽度缩放 */
-      min-height: 40px; /* 给个最小高度 */
+      font-size: 1.5vw; 
+      min-height: 40px;
     }
 
-    .excluded {
-      background-color: #999;
-      color: white;
-    }
-
-    .selected {
-      background-color: #4caf50;
-      color: white;
-      font-weight: bold;
-    }
-
-    .obstacle {
-      background-color: #e53935;
-      color: white;
-      font-weight: bold;
-    }
-
-    .target {
-      background-color: #ffeb3b; /* 黄色背景 */
-      color: black;
-      font-weight: bold;
-    }
+    /* 状态颜色 */
+    .excluded { background-color: #999; color: white; }
+    .selected { background-color: #4caf50; color: white; font-weight: bold; }
+    .obstacle { background-color: #e53935; color: white; font-weight: bold; }
+    .target   { background-color: #ffeb3b; color: black; font-weight: bold; border: 2px solid #000; }
 
     button {
-      margin: 8px;
-      padding: 10px 16px;
-      font-size: 16px;
+      margin: 5px;
+      padding: 12px 20px;
+      font-size: 14px;
       cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      background-color: #2196F3;
+      color: white;
+      transition: background 0.3s;
     }
+
+    button:hover { background-color: #1976D2; }
+    button.reset { background-color: #757575; }
   </style>
 </head>
 <body>
 
   <div class="wrapper">
     <div class="container">
-      <h2>房间板子放置工具</h2>
+      <h2>房间板子放置工具 (10x4)</h2>
       <div class="grid" id="grid"></div>
       <div>
         <button onclick="placeRecognition()">放置三个识别板</button>
         <button onclick="placeBoth()">放置识别板和障碍板</button>
-        <button onclick="resetGrid()">重置</button>
+        <button class="reset" onclick="resetGrid()">重置</button>
       </div>
     </div>
   </div>
 
   <script>
-    const cols = 5;
-    const rows = 6;
-    const excluded = ['1,1', '2,1', '3,4', '5,5'];
+    // 配置参数
+    const cols = 10;
+    const rows = 4;
+    // 更新不可放置的坐标
+    const excluded = ['3,4', '1,5', '1,6']; 
 
     function createGrid() {
       const grid = document.getElementById('grid');
       grid.innerHTML = '';
+      // 循环生成格子，从最高行往下排
       for (let r = rows; r >= 1; r--) {
         for (let c = 1; c <= cols; c++) {
           const cell = document.createElement('div');
           cell.classList.add('cell');
-          cell.id = `${c},${r}`;
-          cell.textContent = `${c},${r}`;
-          if (excluded.includes(cell.id)) {
+          const id = `${c},${r}`;
+          cell.id = id;
+          cell.textContent = id;
+          
+          if (excluded.includes(id)) {
             cell.classList.add('excluded');
           }
           grid.appendChild(cell);
@@ -133,8 +130,8 @@
         for (let c = 1; c <= cols; c++) {
           const id = `${c},${r}`;
           const cell = document.getElementById(id);
-          if (!excluded.includes(id) &&
-              !cell.classList.contains('selected') &&
+          if (!excluded.includes(id) && 
+              !cell.classList.contains('selected') && 
               !cell.classList.contains('obstacle')) {
             all.push(id);
           }
@@ -157,33 +154,33 @@
       const pool = getAvailableCells();
       const selected = getRandomCells(3, pool);
 
-      // 随机选择一块作为目标板
       const targetIndex = Math.floor(Math.random() * selected.length);
       selected.forEach((id, index) => {
         const cell = document.getElementById(id);
         cell.classList.add('selected');
         if (index === targetIndex) {
-          cell.classList.add('target'); // 添加目标板样式
+          cell.classList.add('target');
         }
       });
     }
 
     function placeBoth() {
       resetGrid();
+      // 1. 先放识别板
       let pool = getAvailableCells();
       const selected = getRandomCells(3, pool);
-
-      // 随机选择一块作为目标板
       const targetIndex = Math.floor(Math.random() * selected.length);
+      
       selected.forEach((id, index) => {
         const cell = document.getElementById(id);
         cell.classList.add('selected');
         if (index === targetIndex) {
-          cell.classList.add('target'); // 添加目标板样式
+          cell.classList.add('target');
         }
       });
 
-      pool = getAvailableCells();
+      // 2. 再从剩下的格子里选障碍板
+      pool = getAvailableCells(); 
       const obstacles = getRandomCells(3, pool);
       obstacles.forEach(id => {
         const cell = document.getElementById(id);
@@ -191,6 +188,7 @@
       });
     }
 
+    // 初始化
     createGrid();
   </script>
 
