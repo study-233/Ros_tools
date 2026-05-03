@@ -3,194 +3,718 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <meta charset="UTF-8">
-  <title>房间板子放置工具 (10x4)</title>
+  <title>生产区锥桶随机布置工具</title>
   <style>
     * { box-sizing: border-box; }
 
     html, body {
       margin: 0;
       padding: 0;
-      height: 100%;
+      min-height: 100%;
     }
 
     body {
-      background-color: #f2f2f2;
-      font-family: sans-serif;
+      background: #f2f4f7;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: #222;
     }
 
     .wrapper {
+      min-height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      padding: 24px;
     }
 
     .container {
-      width: 95vw; /* 10列较宽，增加显示宽度 */
-      max-width: 800px; 
-      margin: 0 auto;
+      width: min(96vw, 1050px);
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      gap: 16px;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(10, 1fr); /* 修改为10列 */
-      grid-template-rows: repeat(4, 1fr);    /* 修改为4行 */
-      gap: 4px;
+    h2 {
+      margin: 0;
+      font-size: 24px;
+      text-align: center;
+    }
+
+    .subtitle {
+      margin: -8px 0 4px;
+      color: #666;
+      font-size: 14px;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .board-wrap {
       width: 100%;
-      aspect-ratio: 10 / 4; /* 宽高比改为10:4 */
-      margin-bottom: 20px;
+      background: white;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    .board {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 10 / 4;
+      border: 3px solid #333;
+      background: #fff;
+      overflow: hidden;
+      border-radius: 10px;
+    }
+
+    .cell-grid {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      z-index: 1;
     }
 
     .cell {
+      border: 1px solid #cfd6df;
       display: flex;
       justify-content: center;
       align-items: center;
-      border: 1px solid #999;
-      background-color: #f0f0f0;
-      font-size: 1.5vw; 
-      min-height: 40px;
+      font-size: clamp(10px, 1.2vw, 14px);
+      color: #9aa3ad;
+      user-select: none;
+      background: #fbfcfe;
     }
 
-    /* 状态颜色 */
-    .excluded { background-color: #999; color: white; }
-    .selected { background-color: #4caf50; color: white; font-weight: bold; }
-    .obstacle { background-color: #e53935; color: white; font-weight: bold; }
-    .target   { background-color: #ffeb3b; color: black; font-weight: bold; border: 2px solid #000; }
+    .cell.entry {
+      background: rgba(255, 171, 64, 0.35);
+      color: #7a3d00;
+      font-weight: 700;
+    }
+
+    .cell.exit {
+      background: rgba(66, 165, 245, 0.28);
+      color: #0d47a1;
+      font-weight: 700;
+    }
+
+    .parking-box {
+      position: absolute;
+      z-index: 3;
+      border: 3px solid #6a1b9a;
+      background: rgba(156, 39, 176, 0.22);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: 800;
+      font-size: clamp(18px, 2.4vw, 30px);
+      color: #4a148c;
+      pointer-events: none;
+    }
+
+    .point-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .point {
+      position: absolute;
+      width: clamp(15px, 2.1vw, 24px);
+      height: clamp(15px, 2.1vw, 24px);
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2px solid #222;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 10px;
+      color: #222;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+
+    .point.forbidden {
+      background: #9e9e9e;
+      border-color: #666;
+      color: white;
+      opacity: 0.75;
+    }
+
+    .point.cone {
+      background: #e53935;
+      border-color: #8b0000;
+      color: white;
+      font-weight: 800;
+      width: clamp(22px, 2.8vw, 34px);
+      height: clamp(22px, 2.8vw, 34px);
+      z-index: 8;
+    }
+
+    .point.cone::after {
+      content: "";
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-top: 10px solid #e53935;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
 
     button {
-      margin: 5px;
-      padding: 12px 20px;
-      font-size: 14px;
+      padding: 12px 18px;
+      font-size: 15px;
       cursor: pointer;
       border: none;
-      border-radius: 4px;
-      background-color: #2196F3;
+      border-radius: 10px;
+      background: #1976d2;
       color: white;
-      transition: background 0.3s;
+      transition: transform 0.15s, background 0.2s;
+      box-shadow: 0 4px 12px rgba(25, 118, 210, 0.25);
     }
 
-    button:hover { background-color: #1976D2; }
-    button.reset { background-color: #757575; }
+    button:hover {
+      background: #0d47a1;
+      transform: translateY(-1px);
+    }
+
+    button.secondary {
+      background: #616161;
+      box-shadow: 0 4px 12px rgba(97, 97, 97, 0.2);
+    }
+
+    button.secondary:hover { background: #424242; }
+
+    .info-panel {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 14px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 14px;
+      padding: 14px 16px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .card p, .card li {
+      margin: 4px 0;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #555;
+    }
+
+    .swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid #aaa;
+    }
+
+    .swatch.entry { background: rgba(255, 171, 64, 0.55); }
+    .swatch.exit { background: rgba(66, 165, 245, 0.45); }
+    .swatch.parking { background: rgba(156, 39, 176, 0.3); border: 2px solid #6a1b9a; }
+    .swatch.forbidden { background: #9e9e9e; border-radius: 50%; }
+    .swatch.cone { background: #e53935; border-radius: 50%; }
+
+    .error {
+      color: #b71c1c;
+      font-weight: 700;
+    }
+
+    .ok {
+      color: #1b5e20;
+      font-weight: 700;
+    }
+
+    code {
+      background: #f1f3f4;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 760px) {
+      .info-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .board-wrap {
+        padding: 10px;
+      }
+
+      .cell {
+        font-size: 9px;
+      }
+    }
   </style>
 </head>
 <body>
-
   <div class="wrapper">
     <div class="container">
-      <h2>房间板子放置工具 (10x4)</h2>
-      <div class="grid" id="grid"></div>
-      <div>
-        <button onclick="placeRecognition()">放置三个识别板</button>
-        <button onclick="placeBoth()">放置识别板和障碍板</button>
-        <button class="reset" onclick="resetGrid()">重置</button>
+      <h2>生产区锥桶随机布置工具</h2>
+      <p class="subtitle">
+        生产区尺寸：5m × 2m；底图为 10 × 4 个 50cm 小方格；锥桶只放在内部辅助线交点，共 9 × 3 个点位。
+      </p>
+
+      <div class="board-wrap">
+        <div class="board" id="board">
+          <div class="cell-grid" id="cellGrid"></div>
+          <div class="point-layer" id="pointLayer"></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button onclick="generateScene(8)">抽取 8 个锥桶</button>
+        <button onclick="generateScene(9)">抽取 9 个锥桶</button>
+        <button onclick="generateScene(10)">抽取 10 个锥桶</button>
+        <button class="secondary" onclick="resetScene()">清空</button>
+      </div>
+
+      <div class="info-panel">
+        <div class="card">
+          <h3>当前结果</h3>
+          <p id="statusText">请点击上方按钮生成锥桶布置。</p>
+          <p><strong>A/B/C 停车点：</strong><span id="parkingText">未生成</span></p>
+          <p><strong>锥桶点位：</strong><span id="coneText">未生成</span></p>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch entry"></span>入口禁区</span>
+            <span class="legend-item"><span class="swatch exit"></span>出口禁区</span>
+            <span class="legend-item"><span class="swatch parking"></span>A/B/C 停车点方框</span>
+            <span class="legend-item"><span class="swatch forbidden"></span>禁放交点</span>
+            <span class="legend-item"><span class="swatch cone"></span>锥桶</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>内置规则</h3>
+          <ol>
+            <li>锥桶数量由按钮控制：8、9 或 10 个。</li>
+            <li>锥桶底部中心只能落在 9 × 3 个内部辅助线交点。</li>
+            <li>任意相邻 2 × 2 交点不能同时全部放置锥桶。</li>
+            <li>A/B/C 停车点随机贴生产区四边生成，尺寸均为 50cm × 50cm。</li>
+            <li>A/B/C 任意两个停车点中心距离不小于 1m。</li>
+            <li>入口、出口、停车点方框的相关角点均禁止放置锥桶。</li>
+          </ol>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    // 配置参数
-    const cols = 10;
-    const rows = 4;
-    // 更新不可放置的坐标
-    const excluded = ['3,4', '5,1', '6,1']; 
+    // =========================
+    // 基础尺寸配置
+    // =========================
+    const BOARD_COLS = 10;      // 5m / 0.5m = 10列小方格
+    const BOARD_ROWS = 4;       // 2m / 0.5m = 4行小方格
+    const POINT_COLS = 9;       // 内部辅助线交点列数
+    const POINT_ROWS = 3;       // 内部辅助线交点行数
+    const CELL_SIZE_M = 0.5;    // 每个小方格 0.5m × 0.5m
+    const MIN_PARKING_DISTANCE_M = 1.0;
 
-    function createGrid() {
-      const grid = document.getElementById('grid');
+    // 单元格坐标：从左到右 c=1..10，从上到下 r=1..4
+    const ENTRY_CELLS = [
+      { c: 3, r: 1, label: '入口' }
+    ];
+
+    const EXIT_CELLS = [
+      { c: 5, r: 3, label: '出口' },
+      { c: 6, r: 3, label: '出口' }
+    ];
+
+    const FIXED_BLOCKED_CELLS = [...ENTRY_CELLS, ...EXIT_CELLS];
+    let currentParkingCells = [];
+    let currentForbiddenPoints = new Set();
+    let currentCones = [];
+
+    function cellKey(c, r) {
+      return `${c},${r}`;
+    }
+
+    function pointKey(x, y) {
+      return `${x},${y}`;
+    }
+
+    function parsePointKey(key) {
+      const [x, y] = key.split(',').map(Number);
+      return { x, y };
+    }
+
+    function shuffle(array) {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function createCellGrid() {
+      const grid = document.getElementById('cellGrid');
       grid.innerHTML = '';
-      // 循环生成格子，从最高行往下排
-      for (let r = rows; r >= 1; r--) {
-        for (let c = 1; c <= cols; c++) {
+
+      for (let r = 1; r <= BOARD_ROWS; r++) {
+        for (let c = 1; c <= BOARD_COLS; c++) {
           const cell = document.createElement('div');
-          cell.classList.add('cell');
-          const id = `${c},${r}`;
-          cell.id = id;
-          cell.textContent = id;
-          
-          if (excluded.includes(id)) {
-            cell.classList.add('excluded');
+          cell.className = 'cell';
+          cell.dataset.c = c;
+          cell.dataset.r = r;
+          cell.textContent = `${c},${r}`;
+
+          if (ENTRY_CELLS.some(item => item.c === c && item.r === r)) {
+            cell.classList.add('entry');
+            cell.textContent = '入口';
           }
+
+          if (EXIT_CELLS.some(item => item.c === c && item.r === r)) {
+            cell.classList.add('exit');
+            cell.textContent = '出口';
+          }
+
           grid.appendChild(cell);
         }
       }
     }
 
-    function resetGrid() {
-      document.querySelectorAll('.cell').forEach(cell => {
-        cell.classList.remove('selected', 'obstacle', 'target');
+    function createPointLayer() {
+      const layer = document.getElementById('pointLayer');
+      layer.innerHTML = '';
+
+      for (let y = 1; y <= POINT_ROWS; y++) {
+        for (let x = 1; x <= POINT_COLS; x++) {
+          const point = document.createElement('div');
+          point.className = 'point';
+          point.id = `point-${x}-${y}`;
+          point.dataset.x = x;
+          point.dataset.y = y;
+          point.title = `交点(${x},${y})`;
+          point.textContent = `${x},${y}`;
+          point.style.left = `${(x / BOARD_COLS) * 100}%`;
+          point.style.top = `${(y / BOARD_ROWS) * 100}%`;
+          layer.appendChild(point);
+        }
+      }
+    }
+
+    function clearParkingBoxes() {
+      document.querySelectorAll('.parking-box').forEach(el => el.remove());
+    }
+
+    function drawParkingBoxes(parkingCells) {
+      clearParkingBoxes();
+      const board = document.getElementById('board');
+
+      parkingCells.forEach((cell, index) => {
+        const box = document.createElement('div');
+        box.className = 'parking-box';
+        box.textContent = ['A', 'B', 'C'][index];
+        box.title = `${box.textContent} 停车点：单元格(${cell.c},${cell.r})`;
+        box.style.left = `${((cell.c - 1) / BOARD_COLS) * 100}%`;
+        box.style.top = `${((cell.r - 1) / BOARD_ROWS) * 100}%`;
+        box.style.width = `${(1 / BOARD_COLS) * 100}%`;
+        box.style.height = `${(1 / BOARD_ROWS) * 100}%`;
+        board.appendChild(box);
       });
     }
 
-    function getAvailableCells() {
-      const all = [];
-      for (let r = 1; r <= rows; r++) {
-        for (let c = 1; c <= cols; c++) {
-          const id = `${c},${r}`;
-          const cell = document.getElementById(id);
-          if (!excluded.includes(id) && 
-              !cell.classList.contains('selected') && 
-              !cell.classList.contains('obstacle')) {
-            all.push(id);
+    function resetPointClasses() {
+      document.querySelectorAll('.point').forEach(point => {
+        point.classList.remove('forbidden', 'cone');
+      });
+    }
+
+    function markForbiddenPoints(forbiddenSet) {
+      forbiddenSet.forEach(key => {
+        const { x, y } = parsePointKey(key);
+        const el = document.getElementById(`point-${x}-${y}`);
+        if (el) el.classList.add('forbidden');
+      });
+    }
+
+    function markCones(cones) {
+      cones.forEach((key, index) => {
+        const { x, y } = parsePointKey(key);
+        const el = document.getElementById(`point-${x}-${y}`);
+        if (el) {
+          el.classList.remove('forbidden');
+          el.classList.add('cone');
+          el.textContent = index + 1;
+        }
+      });
+    }
+
+    function restorePointText() {
+      document.querySelectorAll('.point').forEach(point => {
+        point.textContent = `${point.dataset.x},${point.dataset.y}`;
+      });
+    }
+
+    // 计算某个 50cm × 50cm 方框的四个角点。
+    // 方框用单元格坐标表示：c=1..10, r=1..4。
+    // 角点用内部辅助线交点表示：x=1..9, y=1..3。
+    // 如果角点落在生产区外边界上，则该点本来就不是可放锥桶点，自动忽略。
+    function getInternalCornersOfCell(c, r) {
+      const candidates = [
+        { x: c - 1, y: r - 1 },
+        { x: c,     y: r - 1 },
+        { x: c - 1, y: r     },
+        { x: c,     y: r     }
+      ];
+
+      return candidates.filter(p =>
+        p.x >= 1 && p.x <= POINT_COLS &&
+        p.y >= 1 && p.y <= POINT_ROWS
+      );
+    }
+
+    function getForbiddenPoints(parkingCells) {
+      const forbidden = new Set();
+      const blockedCells = [...FIXED_BLOCKED_CELLS, ...parkingCells];
+
+      blockedCells.forEach(cell => {
+        getInternalCornersOfCell(cell.c, cell.r).forEach(p => {
+          forbidden.add(pointKey(p.x, p.y));
+        });
+      });
+
+      return forbidden;
+    }
+
+    function getAllPoints() {
+      const points = [];
+      for (let y = 1; y <= POINT_ROWS; y++) {
+        for (let x = 1; x <= POINT_COLS; x++) {
+          points.push(pointKey(x, y));
+        }
+      }
+      return points;
+    }
+
+    function getEdgeCellCandidates() {
+      const candidates = [];
+      const fixedBlockedSet = new Set(FIXED_BLOCKED_CELLS.map(cell => cellKey(cell.c, cell.r)));
+
+      for (let r = 1; r <= BOARD_ROWS; r++) {
+        for (let c = 1; c <= BOARD_COLS; c++) {
+          const isEdge = c === 1 || c === BOARD_COLS || r === 1 || r === BOARD_ROWS;
+          const isBlocked = fixedBlockedSet.has(cellKey(c, r));
+          if (isEdge && !isBlocked) {
+            candidates.push({ c, r });
           }
         }
       }
-      return all;
+
+      return candidates;
     }
 
-    function getRandomCells(count, pool) {
-      const result = [];
-      while (result.length < count && pool.length > 0) {
-        const index = Math.floor(Math.random() * pool.length);
-        result.push(pool.splice(index, 1)[0]);
+    function distanceBetweenCellCenters(a, b) {
+      const ax = (a.c - 0.5) * CELL_SIZE_M;
+      const ay = (a.r - 0.5) * CELL_SIZE_M;
+      const bx = (b.c - 0.5) * CELL_SIZE_M;
+      const by = (b.r - 0.5) * CELL_SIZE_M;
+      return Math.hypot(ax - bx, ay - by);
+    }
+
+    function isParkingCellValid(cell, selected) {
+      return selected.every(existing =>
+        distanceBetweenCellCenters(cell, existing) >= MIN_PARKING_DISTANCE_M
+      );
+    }
+
+    function generateParkingCells() {
+      const candidates = getEdgeCellCandidates();
+
+      for (let attempt = 0; attempt < 1000; attempt++) {
+        const shuffled = shuffle(candidates);
+        const selected = [];
+
+        for (const cell of shuffled) {
+          if (isParkingCellValid(cell, selected)) {
+            selected.push(cell);
+          }
+          if (selected.length === 3) return selected;
+        }
       }
-      return result;
+
+      throw new Error('无法生成满足距离要求的 A/B/C 停车点，请检查禁区设置。');
     }
 
-    function placeRecognition() {
-      resetGrid();
-      const pool = getAvailableCells();
-      const selected = getRandomCells(3, pool);
-
-      const targetIndex = Math.floor(Math.random() * selected.length);
-      selected.forEach((id, index) => {
-        const cell = document.getElementById(id);
-        cell.classList.add('selected');
-        if (index === targetIndex) {
-          cell.classList.add('target');
+    // 检查是否出现相邻 2 × 2 交点全被锥桶占据。
+    // 这对应规则：禁止在辅助线构成的正方形方框四个角同时摆放 4 个锥桶。
+    function violatesFourCornerRule(selectedSet) {
+      for (let y = 1; y < POINT_ROWS; y++) {
+        for (let x = 1; x < POINT_COLS; x++) {
+          const a = pointKey(x, y);
+          const b = pointKey(x + 1, y);
+          const c = pointKey(x, y + 1);
+          const d = pointKey(x + 1, y + 1);
+          if (selectedSet.has(a) && selectedSet.has(b) && selectedSet.has(c) && selectedSet.has(d)) {
+            return true;
+          }
         }
-      });
+      }
+      return false;
     }
 
-    function placeBoth() {
-      resetGrid();
-      // 1. 先放识别板
-      let pool = getAvailableCells();
-      const selected = getRandomCells(3, pool);
-      const targetIndex = Math.floor(Math.random() * selected.length);
-      
-      selected.forEach((id, index) => {
-        const cell = document.getElementById(id);
-        cell.classList.add('selected');
-        if (index === targetIndex) {
-          cell.classList.add('target');
+    function canAddCone(candidate, selectedSet) {
+      const testSet = new Set(selectedSet);
+      testSet.add(candidate);
+      return !violatesFourCornerRule(testSet);
+    }
+
+    function backtrackSelectCones(pool, count, selectedSet = new Set(), startIndex = 0) {
+      if (selectedSet.size === count) {
+        return [...selectedSet];
+      }
+
+      if (pool.length - startIndex < count - selectedSet.size) {
+        return null;
+      }
+
+      const randomizedIndexes = [];
+      for (let i = startIndex; i < pool.length; i++) randomizedIndexes.push(i);
+
+      for (const i of shuffle(randomizedIndexes)) {
+        const candidate = pool[i];
+        if (!canAddCone(candidate, selectedSet)) continue;
+
+        selectedSet.add(candidate);
+        const result = backtrackSelectCones(pool, count, selectedSet, i + 1);
+        if (result) return result;
+        selectedSet.delete(candidate);
+      }
+
+      return null;
+    }
+
+    function generateCones(count, forbiddenSet) {
+      const pool = shuffle(getAllPoints().filter(key => !forbiddenSet.has(key)));
+
+      if (pool.length < count) {
+        throw new Error(`可用交点不足：当前只有 ${pool.length} 个可用交点，无法放置 ${count} 个锥桶。`);
+      }
+
+      for (let attempt = 0; attempt < 200; attempt++) {
+        const result = backtrackSelectCones(shuffle(pool), count);
+        if (result) return result;
+      }
+
+      throw new Error('无法生成满足四角限制的锥桶布局，请重新抽取。');
+    }
+
+    function validateScene(cones, forbiddenSet) {
+      const coneSet = new Set(cones);
+
+      for (const cone of cones) {
+        if (forbiddenSet.has(cone)) {
+          return { ok: false, message: `锥桶 ${cone} 放在了禁放交点。` };
         }
-      });
+      }
 
-      // 2. 再从剩下的格子里选障碍板
-      pool = getAvailableCells(); 
-      const obstacles = getRandomCells(3, pool);
-      obstacles.forEach(id => {
-        const cell = document.getElementById(id);
-        cell.classList.add('obstacle');
-      });
+      if (violatesFourCornerRule(coneSet)) {
+        return { ok: false, message: '存在某个 50cm × 50cm 方框四角同时放置锥桶。' };
+      }
+
+      for (let i = 0; i < currentParkingCells.length; i++) {
+        for (let j = i + 1; j < currentParkingCells.length; j++) {
+          const d = distanceBetweenCellCenters(currentParkingCells[i], currentParkingCells[j]);
+          if (d < MIN_PARKING_DISTANCE_M) {
+            return { ok: false, message: '存在两个停车点中心距离小于 1m。' };
+          }
+        }
+      }
+
+      return { ok: true, message: '布置合法，已满足所有内置规则。' };
     }
 
-    // 初始化
-    createGrid();
+    function updateInfo(count, validation) {
+      const status = document.getElementById('statusText');
+      status.className = validation.ok ? 'ok' : 'error';
+      status.textContent = validation.ok
+        ? `已成功生成 ${count} 个锥桶。${validation.message}`
+        : `生成失败：${validation.message}`;
+
+      document.getElementById('parkingText').textContent = currentParkingCells.length
+        ? currentParkingCells.map((cell, index) => `${['A', 'B', 'C'][index]}=单元格(${cell.c},${cell.r})`).join('；')
+        : '未生成';
+
+      document.getElementById('coneText').textContent = currentCones.length
+        ? currentCones.map(key => `(${key})`).join('、')
+        : '未生成';
+    }
+
+    function resetScene() {
+      currentParkingCells = [];
+      currentForbiddenPoints = new Set();
+      currentCones = [];
+      clearParkingBoxes();
+      resetPointClasses();
+      restorePointText();
+      document.getElementById('statusText').className = '';
+      document.getElementById('statusText').textContent = '已清空，请重新点击按钮生成。';
+      document.getElementById('parkingText').textContent = '未生成';
+      document.getElementById('coneText').textContent = '未生成';
+    }
+
+    function generateScene(coneCount) {
+      try {
+        resetPointClasses();
+        restorePointText();
+        clearParkingBoxes();
+
+        currentParkingCells = generateParkingCells();
+        currentForbiddenPoints = getForbiddenPoints(currentParkingCells);
+        currentCones = generateCones(coneCount, currentForbiddenPoints);
+
+        drawParkingBoxes(currentParkingCells);
+        markForbiddenPoints(currentForbiddenPoints);
+        markCones(currentCones);
+
+        const validation = validateScene(currentCones, currentForbiddenPoints);
+        updateInfo(coneCount, validation);
+      } catch (err) {
+        currentCones = [];
+        const status = document.getElementById('statusText');
+        status.className = 'error';
+        status.textContent = err.message;
+      }
+    }
+
+    createCellGrid();
+    createPointLayer();
   </script>
-
 </body>
 </html>
