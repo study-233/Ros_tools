@@ -282,6 +282,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="wrapper">
     <div class="container">
@@ -311,8 +312,8 @@
           <p><strong>A/B/C 停车点：</strong><span id="parkingText">未生成</span></p>
           <p><strong>锥桶点位：</strong><span id="coneText">未生成</span></p>
           <div class="legend">
-            <span class="legend-item"><span class="swatch entry"></span>入口禁区</span>
-            <span class="legend-item"><span class="swatch exit"></span>出口禁区</span>
+            <span class="legend-item"><span class="swatch entry"></span>入口标识</span>
+            <span class="legend-item"><span class="swatch exit"></span>出口标识</span>
             <span class="legend-item"><span class="swatch parking"></span>A/B/C 停车点方框</span>
             <span class="legend-item"><span class="swatch forbidden"></span>禁放交点</span>
             <span class="legend-item"><span class="swatch cone"></span>锥桶</span>
@@ -327,7 +328,9 @@
             <li>任意相邻 2 × 2 交点不能同时全部放置锥桶。</li>
             <li>A/B/C 停车点随机贴生产区四边生成，尺寸均为 50cm × 50cm。</li>
             <li>A/B/C 任意两个停车点中心距离不小于 1m。</li>
-            <li>入口、出口、停车点方框的相关角点均禁止放置锥桶。</li>
+            <li>A/B/C 停车点不能与入口、出口重合。</li>
+            <li>A/B/C 停车点方框的相关角点禁止放置锥桶。</li>
+            <li>入口、出口只作为位置标识，不产生锥桶禁放交点。</li>
           </ol>
         </div>
       </div>
@@ -355,7 +358,14 @@
       { c: 6, r: 4, label: '出口' }
     ];
 
+    // 注意：
+    // 1. 锥桶禁放点只由 A/B/C 停车点决定。
+    // 2. 入口、出口不再参与锥桶禁放点计算。
     const FIXED_BLOCKED_CELLS = [];
+
+    // A/B/C 停车点需要避开的单元格：入口 + 出口
+    const PARKING_BLOCKED_CELLS = [...ENTRY_CELLS, ...EXIT_CELLS];
+
     let currentParkingCells = [];
     let currentForbiddenPoints = new Set();
     let currentCones = [];
@@ -502,6 +512,9 @@
 
     function getForbiddenPoints(parkingCells) {
       const forbidden = new Set();
+
+      // 这里只使用停车点参与禁放点计算
+      // 入口、出口不会参与禁放点计算
       const blockedCells = [...FIXED_BLOCKED_CELLS, ...parkingCells];
 
       blockedCells.forEach(cell => {
@@ -525,13 +538,23 @@
 
     function getEdgeCellCandidates() {
       const candidates = [];
-      const fixedBlockedSet = new Set(FIXED_BLOCKED_CELLS.map(cell => cellKey(cell.c, cell.r)));
+
+      // 停车点要避开入口、出口单元格
+      const parkingBlockedSet = new Set(
+        PARKING_BLOCKED_CELLS.map(cell => cellKey(cell.c, cell.r))
+      );
 
       for (let r = 1; r <= BOARD_ROWS; r++) {
         for (let c = 1; c <= BOARD_COLS; c++) {
-          const isEdge = c === 1 || c === BOARD_COLS || r === 1 || r === BOARD_ROWS;
-          const isBlocked = fixedBlockedSet.has(cellKey(c, r));
-          if (isEdge && !isBlocked) {
+          const isEdge =
+            c === 1 ||
+            c === BOARD_COLS ||
+            r === 1 ||
+            r === BOARD_ROWS;
+
+          const isParkingBlocked = parkingBlockedSet.has(cellKey(c, r));
+
+          if (isEdge && !isParkingBlocked) {
             candidates.push({ c, r });
           }
         }
@@ -565,11 +588,14 @@
           if (isParkingCellValid(cell, selected)) {
             selected.push(cell);
           }
-          if (selected.length === 3) return selected;
+
+          if (selected.length === 3) {
+            return selected;
+          }
         }
       }
 
-      throw new Error('无法生成满足距离要求的 A/B/C 停车点，请检查禁区设置。');
+      throw new Error('无法生成满足距离要求的 A/B/C 停车点，请检查入口、出口和距离限制。');
     }
 
     // 检查是否出现相邻 2 × 2 交点全被锥桶占据。
@@ -581,11 +607,18 @@
           const b = pointKey(x + 1, y);
           const c = pointKey(x, y + 1);
           const d = pointKey(x + 1, y + 1);
-          if (selectedSet.has(a) && selectedSet.has(b) && selectedSet.has(c) && selectedSet.has(d)) {
+
+          if (
+            selectedSet.has(a) &&
+            selectedSet.has(b) &&
+            selectedSet.has(c) &&
+            selectedSet.has(d)
+          ) {
             return true;
           }
         }
       }
+
       return false;
     }
 
@@ -605,15 +638,25 @@
       }
 
       const randomizedIndexes = [];
-      for (let i = startIndex; i < pool.length; i++) randomizedIndexes.push(i);
+      for (let i = startIndex; i < pool.length; i++) {
+        randomizedIndexes.push(i);
+      }
 
       for (const i of shuffle(randomizedIndexes)) {
         const candidate = pool[i];
-        if (!canAddCone(candidate, selectedSet)) continue;
+
+        if (!canAddCone(candidate, selectedSet)) {
+          continue;
+        }
 
         selectedSet.add(candidate);
+
         const result = backtrackSelectCones(pool, count, selectedSet, i + 1);
-        if (result) return result;
+
+        if (result) {
+          return result;
+        }
+
         selectedSet.delete(candidate);
       }
 
@@ -621,7 +664,9 @@
     }
 
     function generateCones(count, forbiddenSet) {
-      const pool = shuffle(getAllPoints().filter(key => !forbiddenSet.has(key)));
+      const pool = shuffle(
+        getAllPoints().filter(key => !forbiddenSet.has(key))
+      );
 
       if (pool.length < count) {
         throw new Error(`可用交点不足：当前只有 ${pool.length} 个可用交点，无法放置 ${count} 个锥桶。`);
@@ -640,24 +685,54 @@
 
       for (const cone of cones) {
         if (forbiddenSet.has(cone)) {
-          return { ok: false, message: `锥桶 ${cone} 放在了禁放交点。` };
+          return {
+            ok: false,
+            message: `锥桶 ${cone} 放在了禁放交点。`
+          };
         }
       }
 
       if (violatesFourCornerRule(coneSet)) {
-        return { ok: false, message: '存在某个 50cm × 50cm 方框四角同时放置锥桶。' };
+        return {
+          ok: false,
+          message: '存在某个 50cm × 50cm 方框四角同时放置锥桶。'
+        };
+      }
+
+      // 检查停车点是否与入口、出口重合
+      const parkingBlockedSet = new Set(
+        PARKING_BLOCKED_CELLS.map(cell => cellKey(cell.c, cell.r))
+      );
+
+      for (const cell of currentParkingCells) {
+        if (parkingBlockedSet.has(cellKey(cell.c, cell.r))) {
+          return {
+            ok: false,
+            message: `停车点生成在了入口或出口单元格(${cell.c},${cell.r})。`
+          };
+        }
       }
 
       for (let i = 0; i < currentParkingCells.length; i++) {
         for (let j = i + 1; j < currentParkingCells.length; j++) {
-          const d = distanceBetweenCellCenters(currentParkingCells[i], currentParkingCells[j]);
+          const d = distanceBetweenCellCenters(
+            currentParkingCells[i],
+            currentParkingCells[j]
+          );
+
           if (d < MIN_PARKING_DISTANCE_M) {
-            return { ok: false, message: '存在两个停车点中心距离小于 1m。' };
+            return {
+              ok: false,
+              message: '存在两个停车点中心距离小于 1m。'
+            };
           }
         }
       }
 
-      return { ok: true, message: '布置合法，已满足所有内置规则。' };
+      return {
+        ok: true,
+        message: '布置合法，已满足所有内置规则。'
+      };
     }
 
     function updateInfo(count, validation) {
@@ -668,7 +743,9 @@
         : `生成失败：${validation.message}`;
 
       document.getElementById('parkingText').textContent = currentParkingCells.length
-        ? currentParkingCells.map((cell, index) => `${['A', 'B', 'C'][index]}=单元格(${cell.c},${cell.r})`).join('；')
+        ? currentParkingCells
+            .map((cell, index) => `${['A', 'B', 'C'][index]}=单元格(${cell.c},${cell.r})`)
+            .join('；')
         : '未生成';
 
       document.getElementById('coneText').textContent = currentCones.length
@@ -680,9 +757,11 @@
       currentParkingCells = [];
       currentForbiddenPoints = new Set();
       currentCones = [];
+
       clearParkingBoxes();
       resetPointClasses();
       restorePointText();
+
       document.getElementById('statusText').className = '';
       document.getElementById('statusText').textContent = '已清空，请重新点击按钮生成。';
       document.getElementById('parkingText').textContent = '未生成';
@@ -696,7 +775,11 @@
         clearParkingBoxes();
 
         currentParkingCells = generateParkingCells();
+
+        // 这里只根据停车点计算锥桶禁放点
+        // 入口、出口不会产生禁放点
         currentForbiddenPoints = getForbiddenPoints(currentParkingCells);
+
         currentCones = generateCones(coneCount, currentForbiddenPoints);
 
         drawParkingBoxes(currentParkingCells);
